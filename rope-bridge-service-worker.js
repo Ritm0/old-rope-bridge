@@ -1,4 +1,4 @@
-const CACHE_NAME = "old-rope-bridge-v2";
+const CACHE_NAME = "old-rope-bridge-v4";
 const ASSETS = [
   "./",
   "index.html",

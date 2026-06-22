@@ -47,7 +47,8 @@
       touch-action: manipulation;
     }
 
-    button {
+    button,
+    input {
       font: inherit;
     }
 
@@ -135,6 +136,62 @@
       white-space: nowrap;
     }
 
+    .tools {
+      position: fixed;
+      right: calc(16px + env(safe-area-inset-right));
+      bottom: calc(112px + env(safe-area-inset-bottom));
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      width: min(420px, calc(100vw - 32px));
+      pointer-events: none;
+    }
+
+    .tool {
+      display: grid;
+      grid-template-columns: auto auto;
+      gap: 2px 8px;
+      align-items: center;
+      min-width: 118px;
+      min-height: 46px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--ink);
+      cursor: pointer;
+      padding: 7px 10px;
+      box-shadow: 0 10px 34px rgba(0, 0, 0, 0.24);
+      backdrop-filter: blur(14px);
+      pointer-events: auto;
+    }
+
+    .tool:disabled {
+      cursor: default;
+      opacity: 0.42;
+    }
+
+    .tool .icon {
+      grid-row: span 2;
+      font-size: 21px;
+      line-height: 1;
+    }
+
+    .tool .name {
+      font-size: 12px;
+      font-weight: 950;
+      line-height: 1;
+      text-align: left;
+    }
+
+    .tool .count {
+      color: var(--warning);
+      font-size: 11px;
+      font-weight: 900;
+      line-height: 1;
+      text-align: left;
+    }
+
     .key {
       display: inline-grid;
       place-items: center;
@@ -204,6 +261,74 @@
       background: rgba(19, 16, 13, 0.93);
       box-shadow: 0 24px 90px rgba(0, 0, 0, 0.48);
       padding: clamp(18px, 4vw, 32px);
+    }
+
+    .leaderboard {
+      display: grid;
+      gap: 10px;
+      margin: 18px 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    h2 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 950;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    ol {
+      display: grid;
+      gap: 5px;
+      min-height: 58px;
+      margin: 0;
+      padding-left: 24px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    li::marker {
+      color: var(--warning);
+      font-weight: 950;
+    }
+
+    .score-form {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+    }
+
+    .score-form input {
+      min-width: 0;
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.22);
+      color: var(--ink);
+      padding: 0 10px;
+      font-weight: 850;
+    }
+
+    .score-form button {
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(137, 230, 189, 0.16);
+      color: var(--ink);
+      cursor: pointer;
+      font-weight: 950;
+      padding: 0 12px;
+    }
+
+    .score-form button:disabled {
+      cursor: default;
+      opacity: 0.46;
     }
 
     h1 {
@@ -282,6 +407,22 @@
         justify-content: center;
         white-space: normal;
       }
+
+      .tools {
+        right: calc(10px + env(safe-area-inset-right));
+        bottom: calc(112px + env(safe-area-inset-bottom));
+        justify-content: center;
+        width: calc(100vw - 20px);
+      }
+
+      .tool {
+        min-width: 96px;
+        padding: 7px 8px;
+      }
+
+      .score-form {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -319,10 +460,36 @@
     <span>or tap a board</span>
   </div>
 
+  <div class="tools" aria-label="Tools">
+    <button class="tool" id="probeTool" type="button">
+      <span class="icon">P</span>
+      <span class="name">Probe</span>
+      <span class="count" id="probeCount">0 left</span>
+    </button>
+    <button class="tool" id="braceTool" type="button" disabled>
+      <span class="icon">B</span>
+      <span class="name">Brace</span>
+      <span class="count" id="braceCount">0 saves</span>
+    </button>
+    <button class="tool" id="chalkTool" type="button">
+      <span class="icon">C</span>
+      <span class="name">Chalk</span>
+      <span class="count" id="chalkCount">0 left</span>
+    </button>
+  </div>
+
   <div class="overlay" id="overlay">
     <div class="modal">
       <h1>Old Rope Bridge</h1>
       <p>Pick one of three boards. Cracked boards might break, unless the cracks are fake. Plain boards might hold, unless the bridge is lying through its teeth.</p>
+      <div class="leaderboard">
+        <h2>Daily Leaderboard</h2>
+        <ol id="leaderboard"></ol>
+        <form class="score-form hidden" id="scoreForm">
+          <input id="playerName" maxlength="12" autocomplete="nickname" placeholder="Name" value="You">
+          <button id="saveScore" type="submit">Save Score</button>
+        </form>
+      </div>
       <div class="actions">
         <button class="primary" id="start">Step Onto It</button>
         <span class="hint">Three choices. Zero accountability.</span>
@@ -340,6 +507,16 @@
     const trustEl = document.getElementById("trust");
     const overlay = document.getElementById("overlay");
     const startButton = document.getElementById("start");
+    const probeTool = document.getElementById("probeTool");
+    const braceTool = document.getElementById("braceTool");
+    const chalkTool = document.getElementById("chalkTool");
+    const probeCountEl = document.getElementById("probeCount");
+    const braceCountEl = document.getElementById("braceCount");
+    const chalkCountEl = document.getElementById("chalkCount");
+    const leaderboardEl = document.getElementById("leaderboard");
+    const scoreForm = document.getElementById("scoreForm");
+    const playerName = document.getElementById("playerName");
+    const saveScore = document.getElementById("saveScore");
 
     if ("serviceWorker" in navigator && location.protocol !== "file:") {
       window.addEventListener("load", () => {
@@ -349,6 +526,8 @@
 
     const rand = (min, max) => min + Math.random() * (max - min);
     const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+    const todayKey = () => new Date().toLocaleDateString("en-CA");
+    const leaderboardKey = () => `old-rope-bridge.leaderboard.${todayKey()}`;
 
     const messages = {
       fake: [
@@ -370,6 +549,16 @@
         "Solid step. Do not get comfortable.",
         "Safe board. The bridge is saving betrayal for later.",
         "You crossed cleanly. The argument continues."
+      ],
+      checkpoint: [
+        "Checkpoint reached. The bridge begrudgingly hands you a tool.",
+        "Ten boards survived. Take a tool and pretend this is fair.",
+        "Checkpoint. A tiny reward before the next betrayal."
+      ],
+      saved: [
+        "Brace caught the snap. That absolutely would have ended the run.",
+        "The board broke, but your brace held. The bridge is furious.",
+        "Saved by a brace. Clip that before anyone says it was luck."
       ]
     };
 
@@ -401,6 +590,8 @@
         h: 0,
         broken: false,
         cracked: false,
+        revealed: false,
+        safeMarked: false,
         selected: false,
         splintered: false,
         wobble: Math.random() * Math.PI * 2
@@ -420,6 +611,12 @@
         streak: 0,
         lies: 0,
         trust: 0.5,
+        tools: {
+          probe: 0,
+          brace: 0,
+          chalk: 0
+        },
+        savedScore: false,
         currentLane: 1,
         currentStepIndex: 0,
         rows: Array.from({ length: 8 }, (_, step) => makeStep(step)),
@@ -462,18 +659,23 @@
       for (const board of next) {
         board.broken = false;
         board.cracked = false;
+        board.revealed = false;
+        board.safeMarked = false;
         board.selected = false;
         board.splintered = false;
       }
 
+      const beforeFirstCheckpoint = state.score < 9;
       const dangerCount = Math.random() < clamp(0.22 + state.score * 0.01, 0.22, 0.44) ? 2 : 1;
       const lanes = [0, 1, 2].sort(() => Math.random() - 0.5);
       const brokenLanes = new Set(lanes.slice(0, dangerCount));
-      const liePressure = clamp(0.22 + state.score * 0.018, 0.22, 0.5);
+      const liePressure = beforeFirstCheckpoint ? 0 : clamp(0.22 + state.score * 0.018, 0.22, 0.5);
 
       for (const board of next) {
         board.broken = brokenLanes.has(board.lane);
-        if (board.broken) {
+        if (beforeFirstCheckpoint) {
+          board.cracked = board.broken;
+        } else if (board.broken) {
           board.cracked = Math.random() > liePressure;
         } else {
           board.cracked = Math.random() < liePressure;
@@ -487,11 +689,103 @@
       liesEl.textContent = state.lies;
       verdictEl.textContent = state.verdict;
       trustEl.style.width = `${Math.round(state.trust * 100)}%`;
+      probeCountEl.textContent = `${state.tools.probe} left`;
+      braceCountEl.textContent = `${state.tools.brace} saves`;
+      chalkCountEl.textContent = `${state.tools.chalk} left`;
+      probeTool.disabled = state.tools.probe <= 0 || state.dead || state.jump;
+      braceTool.disabled = true;
+      chalkTool.disabled = state.tools.chalk <= 0 || state.dead || state.jump;
     }
 
     function chooseMessage(type) {
       const list = messages[type];
       return list[Math.floor(Math.random() * list.length)];
+    }
+
+    function getLeaderboard() {
+      try {
+        return JSON.parse(localStorage.getItem(leaderboardKey()) || "[]");
+      } catch {
+        return [];
+      }
+    }
+
+    function renderLeaderboard() {
+      const entries = getLeaderboard();
+      leaderboardEl.innerHTML = "";
+      if (entries.length === 0) {
+        const empty = document.createElement("li");
+        empty.textContent = "No runs saved today.";
+        leaderboardEl.appendChild(empty);
+        return;
+      }
+
+      for (const entry of entries.slice(0, 5)) {
+        const item = document.createElement("li");
+        item.textContent = `${entry.name} - ${entry.score} boards`;
+        leaderboardEl.appendChild(item);
+      }
+    }
+
+    function saveDailyScore(name, score) {
+      const cleanName = (name || "You").trim().slice(0, 12) || "You";
+      const entries = getLeaderboard();
+      entries.push({
+        name: cleanName,
+        score,
+        time: Date.now()
+      });
+      entries.sort((a, b) => b.score - a.score || a.time - b.time);
+      localStorage.setItem(leaderboardKey(), JSON.stringify(entries.slice(0, 10)));
+      renderLeaderboard();
+      return cleanName;
+    }
+
+    function showGameOver() {
+      scoreForm.classList.remove("hidden");
+      saveScore.disabled = state.savedScore;
+      renderLeaderboard();
+      overlay.classList.remove("hidden");
+    }
+
+    function nextBoards() {
+      return state.rows[state.currentStepIndex + 1] || [];
+    }
+
+    function useProbe() {
+      if (!state || state.tools.probe <= 0 || state.dead || state.jump) return;
+      const hiddenBroken = nextBoards().filter((board) => board.broken && !board.revealed);
+      const candidates = hiddenBroken.length > 0 ? hiddenBroken : nextBoards().filter((board) => board.broken);
+      const target = candidates[Math.floor(Math.random() * candidates.length)];
+      if (!target) return;
+      target.revealed = true;
+      state.tools.probe -= 1;
+      state.verdict = `Probe says board ${target.lane + 1} is rotten. The probe is not paid by the bridge.`;
+      updateHud();
+    }
+
+    function useChalk() {
+      if (!state || state.tools.chalk <= 0 || state.dead || state.jump) return;
+      const safeBoards = nextBoards().filter((board) => !board.broken && !board.safeMarked);
+      const candidates = safeBoards.length > 0 ? safeBoards : nextBoards().filter((board) => !board.broken);
+      const target = candidates[Math.floor(Math.random() * candidates.length)];
+      if (!target) return;
+      target.safeMarked = true;
+      state.tools.chalk -= 1;
+      state.verdict = `Chalk marks board ${target.lane + 1} as safe. Probably do not overthink that.`;
+      updateHud();
+    }
+
+    function grantCheckpointTool() {
+      const tools = ["probe", "brace", "chalk"];
+      const tool = tools[Math.floor(Math.random() * tools.length)];
+      state.tools[tool] += 1;
+      const names = {
+        probe: "Probe",
+        brace: "Brace",
+        chalk: "Chalk"
+      };
+      state.verdict = `${chooseMessage("checkpoint")} Gained ${names[tool]}.`;
     }
 
     function boardType(board) {
@@ -525,7 +819,20 @@
         state.trust = clamp(state.trust - 0.06, 0, 1);
       }
 
-      if (board.broken) {
+      if (board.broken && state.tools.brace > 0) {
+        state.tools.brace -= 1;
+        board.splintered = true;
+        state.score += 1;
+        state.streak += 1;
+        state.currentLane = board.lane;
+        state.currentStepIndex += 1;
+        state.shake = 16;
+        state.verdict = chooseMessage("saved");
+        spawnSplinters(board.x + board.w / 2, board.y + board.h / 2, 48);
+        if (state.score % 10 === 0) grantCheckpointTool();
+        recycleRows();
+        assignNextBoards();
+      } else if (board.broken) {
         board.splintered = true;
         state.dead = true;
         state.running = false;
@@ -533,7 +840,7 @@
         state.shake = 26;
         state.verdict = `${chooseMessage(type)} Final score: ${state.score}.`;
         spawnSplinters(board.x + board.w / 2, board.y + board.h / 2, 64);
-        setTimeout(() => overlay.classList.remove("hidden"), 720);
+        setTimeout(showGameOver, 720);
       } else {
         state.score += 1;
         state.streak += 1;
@@ -541,6 +848,7 @@
         state.currentStepIndex += 1;
         state.verdict = chooseMessage(type);
         spawnSplinters(board.x + board.w / 2, board.y + board.h / 2, board.cracked ? 18 : 10);
+        if (state.score % 10 === 0) grantCheckpointTool();
         recycleRows();
         assignNextBoards();
       }
@@ -555,6 +863,8 @@
           board.step = lastStep + 1;
           board.broken = false;
           board.cracked = false;
+          board.revealed = false;
+          board.safeMarked = false;
           board.selected = false;
           board.splintered = false;
         }
@@ -702,6 +1012,25 @@
         ctx.stroke();
       }
 
+      if (board.safeMarked) {
+        ctx.strokeStyle = "#89e6bd";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(board.w * 0.5, board.h * 0.5, board.h * 0.33, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      if (board.revealed) {
+        ctx.strokeStyle = "#f15a42";
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(board.w * 0.32, board.h * 0.24);
+        ctx.lineTo(board.w * 0.68, board.h * 0.76);
+        ctx.moveTo(board.w * 0.68, board.h * 0.24);
+        ctx.lineTo(board.w * 0.32, board.h * 0.76);
+        ctx.stroke();
+      }
+
       ctx.fillStyle = "rgba(255,255,255,0.9)";
       ctx.font = `900 ${Math.max(14, board.h * 0.48)}px ui-sans-serif, system-ui`;
       ctx.textAlign = "center";
@@ -776,11 +1105,11 @@
       const next = state.rows[state.currentStepIndex + 1];
       if (!next) return;
       for (const board of next) {
-        if (!board.cracked) continue;
+        if (!board.cracked && !board.revealed && !board.safeMarked) continue;
         const alpha = 0.35 + Math.sin(state.time * 0.018 + board.lane) * 0.18;
         ctx.save();
         ctx.globalAlpha = alpha;
-        ctx.strokeStyle = "#ffd45f";
+        ctx.strokeStyle = board.revealed ? "#f15a42" : board.safeMarked ? "#89e6bd" : "#ffd45f";
         ctx.lineWidth = 4;
         ctx.setLineDash([10, 10]);
         roundRect(board.x - 7, board.y - 7, board.w + 14, board.h + 14, 8);
@@ -854,6 +1183,7 @@
 
     function startGame() {
       overlay.classList.add("hidden");
+      scoreForm.classList.add("hidden");
       reset();
       lastTime = performance.now();
     }
@@ -874,15 +1204,31 @@
         if (event.key === "1") chooseLane(0);
         if (event.key === "2") chooseLane(1);
         if (event.key === "3") chooseLane(2);
+        if (event.key.toLowerCase() === "p") useProbe();
+        if (event.key.toLowerCase() === "c") useChalk();
         if (event.code === "ArrowLeft") chooseLane(0);
         if (event.code === "ArrowUp") chooseLane(1);
         if (event.code === "ArrowRight") chooseLane(2);
       }
     });
     startButton.addEventListener("click", startGame);
+    probeTool.addEventListener("pointerdown", (event) => event.stopPropagation());
+    chalkTool.addEventListener("pointerdown", (event) => event.stopPropagation());
+    braceTool.addEventListener("pointerdown", (event) => event.stopPropagation());
+    probeTool.addEventListener("click", useProbe);
+    chalkTool.addEventListener("click", useChalk);
+    scoreForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (!state || !state.dead || state.savedScore) return;
+      const savedName = saveDailyScore(playerName.value, state.score);
+      playerName.value = savedName;
+      state.savedScore = true;
+      saveScore.disabled = true;
+    });
 
     resize();
     reset();
+    renderLeaderboard();
     requestAnimationFrame(tick);
   </script>
 </body>
