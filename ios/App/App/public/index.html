@@ -1,0 +1,889 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#172631">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Old Rope Bridge">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="rope-bridge-manifest.webmanifest">
+  <link rel="apple-touch-icon" href="rope-bridge-icon-180.png">
+  <link rel="icon" href="rope-bridge-icon-192.png">
+  <title>Old Rope Bridge</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f7efe0;
+      --muted: #b8b4a8;
+      --panel: rgba(18, 15, 12, 0.76);
+      --line: rgba(255, 255, 255, 0.16);
+      --wood: #9b6338;
+      --wood-dark: #4f2d1f;
+      --rope: #d5b170;
+      --warning: #ffd45f;
+      --bad: #f15a42;
+      --good: #89e6bd;
+      --sky: #5fb5c7;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 22% 14%, rgba(95, 181, 199, 0.24), transparent 30%),
+        radial-gradient(circle at 78% 18%, rgba(255, 212, 95, 0.14), transparent 28%),
+        linear-gradient(180deg, #172631 0%, #20323a 42%, #241914 100%);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      user-select: none;
+      touch-action: manipulation;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    #game {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      cursor: pointer;
+    }
+
+    .hud {
+      position: fixed;
+      inset: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) auto calc(16px + env(safe-area-inset-left));
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill,
+    .verdict,
+    .choice-help {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 10px 34px rgba(0, 0, 0, 0.24);
+      backdrop-filter: blur(14px);
+    }
+
+    .pill {
+      display: grid;
+      min-width: 92px;
+      min-height: 36px;
+      padding: 8px 12px;
+      gap: 1px;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 850;
+      letter-spacing: 0;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+
+    .value {
+      color: var(--ink);
+      font-size: 18px;
+      font-weight: 950;
+      line-height: 1.05;
+    }
+
+    .verdict {
+      width: min(43vw, 390px);
+      min-height: 38px;
+      padding: 9px 12px;
+      color: var(--warning);
+      font-size: clamp(13px, 2vw, 18px);
+      font-weight: 950;
+      line-height: 1.15;
+      text-align: right;
+      text-wrap: balance;
+    }
+
+    .choice-help {
+      position: fixed;
+      left: 50%;
+      bottom: calc(14px + env(safe-area-inset-bottom));
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 9px 12px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 850;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    .key {
+      display: inline-grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.08);
+      font-weight: 950;
+    }
+
+    .truth {
+      position: fixed;
+      left: calc(16px + env(safe-area-inset-left));
+      right: calc(16px + env(safe-area-inset-right));
+      bottom: calc(62px + env(safe-area-inset-bottom));
+      display: grid;
+      grid-template-columns: 96px 1fr 96px;
+      gap: 10px;
+      align-items: center;
+      pointer-events: none;
+    }
+
+    .truth span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .truth span:last-child {
+      text-align: right;
+    }
+
+    .bar {
+      height: 10px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .bar > i {
+      display: block;
+      width: 50%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--good), var(--warning), var(--bad));
+      transition: width 160ms ease;
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      background: rgba(8, 9, 8, 0.72);
+      backdrop-filter: blur(12px);
+    }
+
+    .modal {
+      width: min(570px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(19, 16, 13, 0.93);
+      box-shadow: 0 24px 90px rgba(0, 0, 0, 0.48);
+      padding: clamp(18px, 4vw, 32px);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      color: var(--ink);
+      font-size: clamp(34px, 7vw, 68px);
+      line-height: 0.9;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.45;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .primary {
+      min-height: 44px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--warning);
+      color: #21160d;
+      cursor: pointer;
+      font-weight: 950;
+      padding: 0 18px;
+      box-shadow: 0 10px 28px rgba(255, 212, 95, 0.2);
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    @media (max-width: 640px) {
+      .hud {
+        inset: calc(10px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) auto calc(10px + env(safe-area-inset-left));
+        grid-template-columns: 1fr;
+      }
+
+      .pill {
+        min-width: 76px;
+        padding: 7px 9px;
+      }
+
+      .value {
+        font-size: 16px;
+      }
+
+      .verdict {
+        width: 100%;
+        text-align: left;
+      }
+
+      .truth {
+        left: calc(10px + env(safe-area-inset-left));
+        right: calc(10px + env(safe-area-inset-right));
+        bottom: calc(58px + env(safe-area-inset-bottom));
+        grid-template-columns: 78px 1fr 78px;
+      }
+
+      .choice-help {
+        width: calc(100vw - 20px);
+        justify-content: center;
+        white-space: normal;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game" aria-label="Old Rope Bridge game"></canvas>
+
+  <div class="hud" aria-hidden="true">
+    <div class="stats">
+      <div class="pill">
+        <span class="label">Boards</span>
+        <span class="value" id="score">0</span>
+      </div>
+      <div class="pill">
+        <span class="label">Streak</span>
+        <span class="value" id="streak">0</span>
+      </div>
+      <div class="pill">
+        <span class="label">Lies</span>
+        <span class="value" id="lies">0</span>
+      </div>
+    </div>
+    <div class="verdict" id="verdict">Choose a board. Trust nothing.</div>
+  </div>
+
+  <div class="truth" aria-hidden="true">
+    <span>Honest</span>
+    <div class="bar"><i id="trust"></i></div>
+    <span>Suspect</span>
+  </div>
+
+  <div class="choice-help" aria-hidden="true">
+    <span class="key">1</span>
+    <span class="key">2</span>
+    <span class="key">3</span>
+    <span>or tap a board</span>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <h1>Old Rope Bridge</h1>
+      <p>Pick one of three boards. Cracked boards might break, unless the cracks are fake. Plain boards might hold, unless the bridge is lying through its teeth.</p>
+      <div class="actions">
+        <button class="primary" id="start">Step Onto It</button>
+        <span class="hint">Three choices. Zero accountability.</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const scoreEl = document.getElementById("score");
+    const streakEl = document.getElementById("streak");
+    const liesEl = document.getElementById("lies");
+    const verdictEl = document.getElementById("verdict");
+    const trustEl = document.getElementById("trust");
+    const overlay = document.getElementById("overlay");
+    const startButton = document.getElementById("start");
+
+    if ("serviceWorker" in navigator && location.protocol !== "file:") {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("rope-bridge-service-worker.js").catch(() => {});
+      });
+    }
+
+    const rand = (min, max) => min + Math.random() * (max - min);
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+    const messages = {
+      fake: [
+        "Fake crack. You flinched at decoration.",
+        "That board was fine. The bridge is acting innocent.",
+        "The warning lied. Very traditional old-bridge behavior."
+      ],
+      hidden: [
+        "No crack. Still snapped. Everyone saw that.",
+        "The board looked safe. The board had other plans.",
+        "Hidden damage. Completely fair, according to the bridge."
+      ],
+      honest: [
+        "Cracked and broken. A rare truthful plank.",
+        "The warning was real. Suspiciously refreshing.",
+        "That crack actually meant something."
+      ],
+      safe: [
+        "Solid step. Do not get comfortable.",
+        "Safe board. The bridge is saving betrayal for later.",
+        "You crossed cleanly. The argument continues."
+      ]
+    };
+
+    let width = 0;
+    let height = 0;
+    let dpr = 1;
+    let state;
+    let lastTime = 0;
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (state) layoutBridge();
+    }
+
+    function makeBoard(step, lane) {
+      return {
+        step,
+        lane,
+        x: 0,
+        y: 0,
+        w: 0,
+        h: 0,
+        broken: false,
+        cracked: false,
+        selected: false,
+        splintered: false,
+        wobble: Math.random() * Math.PI * 2
+      };
+    }
+
+    function makeStep(step) {
+      return [0, 1, 2].map((lane) => makeBoard(step, lane));
+    }
+
+    function reset() {
+      state = {
+        running: true,
+        dead: false,
+        time: 0,
+        score: 0,
+        streak: 0,
+        lies: 0,
+        trust: 0.5,
+        currentLane: 1,
+        currentStepIndex: 0,
+        rows: Array.from({ length: 8 }, (_, step) => makeStep(step)),
+        jump: null,
+        shake: 0,
+        verdict: "Choose a board. Trust nothing.",
+        splinters: []
+      };
+      assignNextBoards();
+      layoutBridge();
+      updateHud();
+    }
+
+    function layoutBridge() {
+      const centerX = width / 2;
+      const baseY = height * 0.72;
+      const stepGap = clamp(height * 0.115, 72, 110);
+      const laneGap = clamp(width * 0.16, 86, 168);
+      const boardW = clamp(width * 0.14, 74, 128);
+      const boardH = clamp(height * 0.044, 28, 42);
+
+      for (let i = 0; i < state.rows.length; i += 1) {
+        const progress = i - state.currentStepIndex;
+        const perspective = clamp(1 - progress * 0.055, 0.56, 1);
+        const y = baseY - progress * stepGap;
+        for (const board of state.rows[i]) {
+          const sway = Math.sin(state.time * 0.0016 + board.step * 0.8) * 10;
+          board.w = boardW * perspective;
+          board.h = boardH * perspective;
+          board.x = centerX + (board.lane - 1) * laneGap * perspective + sway - board.w / 2;
+          board.y = y + Math.sin(state.time * 0.002 + board.wobble) * 3;
+        }
+      }
+    }
+
+    function assignNextBoards() {
+      const next = state.rows[state.currentStepIndex + 1];
+      if (!next) return;
+
+      for (const board of next) {
+        board.broken = false;
+        board.cracked = false;
+        board.selected = false;
+        board.splintered = false;
+      }
+
+      const dangerCount = Math.random() < clamp(0.22 + state.score * 0.01, 0.22, 0.44) ? 2 : 1;
+      const lanes = [0, 1, 2].sort(() => Math.random() - 0.5);
+      const brokenLanes = new Set(lanes.slice(0, dangerCount));
+      const liePressure = clamp(0.22 + state.score * 0.018, 0.22, 0.5);
+
+      for (const board of next) {
+        board.broken = brokenLanes.has(board.lane);
+        if (board.broken) {
+          board.cracked = Math.random() > liePressure;
+        } else {
+          board.cracked = Math.random() < liePressure;
+        }
+      }
+    }
+
+    function updateHud() {
+      scoreEl.textContent = state.score;
+      streakEl.textContent = state.streak;
+      liesEl.textContent = state.lies;
+      verdictEl.textContent = state.verdict;
+      trustEl.style.width = `${Math.round(state.trust * 100)}%`;
+    }
+
+    function chooseMessage(type) {
+      const list = messages[type];
+      return list[Math.floor(Math.random() * list.length)];
+    }
+
+    function boardType(board) {
+      if (board.broken && board.cracked) return "honest";
+      if (board.broken && !board.cracked) return "hidden";
+      if (!board.broken && board.cracked) return "fake";
+      return "safe";
+    }
+
+    function chooseLane(lane) {
+      if (!state.running || state.dead || state.jump) return;
+      const from = state.rows[state.currentStepIndex][state.currentLane];
+      const to = state.rows[state.currentStepIndex + 1]?.[lane];
+      if (!to) return;
+      to.selected = true;
+      state.jump = {
+        from,
+        to,
+        start: state.time,
+        duration: 440,
+        peak: clamp(height * 0.12, 70, 125)
+      };
+    }
+
+    function resolveLanding(board) {
+      const type = boardType(board);
+      if (board.cracked !== board.broken) {
+        state.lies += 1;
+        state.trust = clamp(state.trust + 0.13, 0, 1);
+      } else {
+        state.trust = clamp(state.trust - 0.06, 0, 1);
+      }
+
+      if (board.broken) {
+        board.splintered = true;
+        state.dead = true;
+        state.running = false;
+        state.streak = 0;
+        state.shake = 26;
+        state.verdict = `${chooseMessage(type)} Final score: ${state.score}.`;
+        spawnSplinters(board.x + board.w / 2, board.y + board.h / 2, 64);
+        setTimeout(() => overlay.classList.remove("hidden"), 720);
+      } else {
+        state.score += 1;
+        state.streak += 1;
+        state.currentLane = board.lane;
+        state.currentStepIndex += 1;
+        state.verdict = chooseMessage(type);
+        spawnSplinters(board.x + board.w / 2, board.y + board.h / 2, board.cracked ? 18 : 10);
+        recycleRows();
+        assignNextBoards();
+      }
+      updateHud();
+    }
+
+    function recycleRows() {
+      while (state.currentStepIndex > 2) {
+        const first = state.rows.shift();
+        const lastStep = state.rows[state.rows.length - 1][0].step;
+        for (const board of first) {
+          board.step = lastStep + 1;
+          board.broken = false;
+          board.cracked = false;
+          board.selected = false;
+          board.splintered = false;
+        }
+        state.rows.push(first);
+        state.currentStepIndex -= 1;
+      }
+    }
+
+    function spawnSplinters(x, y, amount) {
+      for (let i = 0; i < amount; i += 1) {
+        state.splinters.push({
+          x,
+          y,
+          vx: rand(-3, 3),
+          vy: rand(-5, -0.8),
+          rot: rand(-1, 1),
+          life: rand(300, 760),
+          maxLife: 760,
+          len: rand(6, 16),
+          color: Math.random() < 0.45 ? "#d5b170" : "#7b452a"
+        });
+      }
+    }
+
+    function drawBackground() {
+      const sky = ctx.createLinearGradient(0, 0, 0, height);
+      sky.addColorStop(0, "#172631");
+      sky.addColorStop(0.42, "#24404a");
+      sky.addColorStop(1, "#1c1512");
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.fillStyle = "rgba(8, 12, 14, 0.44)";
+      ctx.beginPath();
+      ctx.moveTo(0, height * 0.52);
+      ctx.lineTo(width * 0.22, height * 0.35);
+      ctx.lineTo(width * 0.45, height);
+      ctx.lineTo(0, height);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(width, height * 0.48);
+      ctx.lineTo(width * 0.78, height * 0.34);
+      ctx.lineTo(width * 0.55, height);
+      ctx.lineTo(width, height);
+      ctx.closePath();
+      ctx.fill();
+
+      const fog = ctx.createLinearGradient(0, height * 0.55, 0, height);
+      fog.addColorStop(0, "rgba(255,255,255,0.04)");
+      fog.addColorStop(1, "rgba(0,0,0,0.4)");
+      ctx.fillStyle = fog;
+      ctx.fillRect(0, height * 0.55, width, height * 0.45);
+    }
+
+    function drawRopes() {
+      const leftTop = state.rows[state.rows.length - 1][0];
+      const rightTop = state.rows[state.rows.length - 1][2];
+      const leftBottom = state.rows[0][0];
+      const rightBottom = state.rows[0][2];
+
+      ctx.save();
+      ctx.strokeStyle = "#d5b170";
+      ctx.lineWidth = clamp(width * 0.008, 5, 10);
+      ctx.lineCap = "round";
+      drawRope(leftBottom.x - 20, leftBottom.y + 10, leftTop.x - 12, leftTop.y + 5, -1);
+      drawRope(rightBottom.x + rightBottom.w + 20, rightBottom.y + 10, rightTop.x + rightTop.w + 12, rightTop.y + 5, 1);
+
+      ctx.strokeStyle = "rgba(213,177,112,0.75)";
+      ctx.lineWidth = clamp(width * 0.004, 3, 6);
+      drawRope(leftBottom.x - 14, leftBottom.y - 36, leftTop.x - 8, leftTop.y - 26, -1);
+      drawRope(rightBottom.x + rightBottom.w + 14, rightBottom.y - 36, rightTop.x + rightTop.w + 8, rightTop.y - 26, 1);
+      ctx.restore();
+    }
+
+    function drawRope(x1, y1, x2, y2, side) {
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.bezierCurveTo(
+        width * (side < 0 ? 0.18 : 0.82),
+        height * 0.6 + Math.sin(state.time * 0.0014) * 10,
+        width * (side < 0 ? 0.28 : 0.72),
+        height * 0.28,
+        x2,
+        y2
+      );
+      ctx.stroke();
+    }
+
+    function drawBoard(board) {
+      const pulse = board.cracked ? 0.5 + Math.sin(state.time * 0.018 + board.lane) * 0.5 : 0;
+      const dangerGlow = board.cracked ? 18 + pulse * 14 : 6;
+      const x = board.x;
+      const y = board.y;
+      const wobble = Math.sin(state.time * 0.004 + board.wobble) * (board.selected ? 0.09 : 0.035);
+
+      ctx.save();
+      ctx.translate(x + board.w / 2, y + board.h / 2);
+      ctx.rotate(wobble);
+      ctx.translate(-board.w / 2, -board.h / 2);
+
+      if (board.splintered) {
+        ctx.strokeStyle = "#d5b170";
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(6, board.h * 0.2);
+        ctx.lineTo(board.w * 0.35, board.h * 0.95);
+        ctx.moveTo(board.w - 6, board.h * 0.25);
+        ctx.lineTo(board.w * 0.58, board.h);
+        ctx.stroke();
+        ctx.restore();
+        return;
+      }
+
+      ctx.shadowBlur = dangerGlow;
+      ctx.shadowColor = board.cracked ? "rgba(241,90,66,0.7)" : "rgba(137,230,189,0.22)";
+      const grain = ctx.createLinearGradient(0, 0, board.w, board.h);
+      grain.addColorStop(0, "#b87643");
+      grain.addColorStop(0.45, "#8a5431");
+      grain.addColorStop(1, "#5c3625");
+      ctx.fillStyle = grain;
+      roundRect(0, 0, board.w, board.h, 6);
+      ctx.fill();
+
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = "rgba(50,28,18,0.45)";
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 3; i += 1) {
+        const gy = board.h * (0.25 + i * 0.22);
+        ctx.beginPath();
+        ctx.moveTo(8, gy);
+        ctx.bezierCurveTo(board.w * 0.35, gy - 4, board.w * 0.65, gy + 4, board.w - 8, gy);
+        ctx.stroke();
+      }
+
+      if (board.cracked) {
+        ctx.strokeStyle = `rgba(255,212,95,${0.72 + pulse * 0.28})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(board.w * 0.22, board.h * 0.18);
+        ctx.lineTo(board.w * 0.44, board.h * 0.45);
+        ctx.lineTo(board.w * 0.36, board.h * 0.7);
+        ctx.lineTo(board.w * 0.62, board.h * 0.92);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.font = `900 ${Math.max(14, board.h * 0.48)}px ui-sans-serif, system-ui`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(board.lane + 1), board.w / 2, board.h / 2);
+      ctx.restore();
+    }
+
+    function drawPlayer() {
+      const current = state.rows[state.currentStepIndex][state.currentLane];
+      let x = current.x + current.w / 2;
+      let y = current.y - 20;
+
+      if (state.jump) {
+        const t = clamp((state.time - state.jump.start) / state.jump.duration, 0, 1);
+        const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        x = state.jump.from.x + state.jump.from.w / 2 + (state.jump.to.x + state.jump.to.w / 2 - (state.jump.from.x + state.jump.from.w / 2)) * eased;
+        y = state.jump.from.y - 20 + (state.jump.to.y - state.jump.from.y) * eased - Math.sin(t * Math.PI) * state.jump.peak;
+      }
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(Math.sin(state.time * 0.009) * 0.08);
+      ctx.shadowBlur = 18;
+      ctx.shadowColor = state.dead ? "rgba(241,90,66,0.65)" : "rgba(137,230,189,0.55)";
+      ctx.fillStyle = state.dead ? "#f15a42" : "#89e6bd";
+      ctx.beginPath();
+      ctx.arc(0, 0, 17, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#142018";
+      ctx.beginPath();
+      ctx.arc(-5, -4, 2.8, 0, Math.PI * 2);
+      ctx.arc(5, -4, 2.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#142018";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(-7, 7);
+      ctx.quadraticCurveTo(0, state.dead ? 13 : 3, 7, 7);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawSplinters(dt) {
+      for (let i = state.splinters.length - 1; i >= 0; i -= 1) {
+        const s = state.splinters[i];
+        s.life -= dt;
+        s.vy += 0.13;
+        s.x += s.vx;
+        s.y += s.vy;
+        s.rot += 0.08;
+        if (s.life <= 0) {
+          state.splinters.splice(i, 1);
+          continue;
+        }
+        ctx.save();
+        ctx.globalAlpha = clamp(s.life / s.maxLife, 0, 1);
+        ctx.translate(s.x, s.y);
+        ctx.rotate(s.rot);
+        ctx.strokeStyle = s.color;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(-s.len / 2, 0);
+        ctx.lineTo(s.len / 2, 0);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    function drawChoiceGlow() {
+      const next = state.rows[state.currentStepIndex + 1];
+      if (!next) return;
+      for (const board of next) {
+        if (!board.cracked) continue;
+        const alpha = 0.35 + Math.sin(state.time * 0.018 + board.lane) * 0.18;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = "#ffd45f";
+        ctx.lineWidth = 4;
+        ctx.setLineDash([10, 10]);
+        roundRect(board.x - 7, board.y - 7, board.w + 14, board.h + 14, 8);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    function roundRect(x, y, w, h, r) {
+      const radius = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.arcTo(x + w, y, x + w, y + h, radius);
+      ctx.arcTo(x + w, y + h, x, y + h, radius);
+      ctx.arcTo(x, y + h, x, y, radius);
+      ctx.arcTo(x, y, x + w, y, radius);
+      ctx.closePath();
+    }
+
+    function laneFromPointer(event) {
+      const next = state.rows[state.currentStepIndex + 1];
+      if (!next) return null;
+      const scaleX = canvas.clientWidth / width;
+      const scaleY = canvas.clientHeight / height;
+      const px = event.clientX / scaleX;
+      const py = event.clientY / scaleY;
+
+      for (const board of next) {
+        if (px >= board.x - 18 && px <= board.x + board.w + 18 && py >= board.y - 28 && py <= board.y + board.h + 28) {
+          return board.lane;
+        }
+      }
+      if (py > height * 0.48) {
+        if (px < width / 3) return 0;
+        if (px < width * 2 / 3) return 1;
+        return 2;
+      }
+      return null;
+    }
+
+    function tick(now) {
+      const dt = Math.min(34, now - lastTime || 16);
+      lastTime = now;
+      if (state) {
+        state.time += dt;
+        state.shake = Math.max(0, state.shake - dt * 0.06);
+        layoutBridge();
+
+        if (state.jump && state.time - state.jump.start >= state.jump.duration) {
+          const landed = state.jump.to;
+          state.jump = null;
+          resolveLanding(landed);
+        }
+
+        ctx.save();
+        if (state.shake > 0) {
+          ctx.translate(rand(-state.shake, state.shake), rand(-state.shake, state.shake));
+        }
+        drawBackground();
+        drawRopes();
+        drawChoiceGlow();
+        for (const row of state.rows) {
+          for (const board of row) drawBoard(board);
+        }
+        drawPlayer();
+        drawSplinters(dt);
+        ctx.restore();
+      }
+      requestAnimationFrame(tick);
+    }
+
+    function startGame() {
+      overlay.classList.add("hidden");
+      reset();
+      lastTime = performance.now();
+    }
+
+    window.addEventListener("resize", resize);
+    window.addEventListener("pointerdown", (event) => {
+      if (event.target === startButton) return;
+      if (!overlay.classList.contains("hidden")) return;
+      const lane = laneFromPointer(event);
+      if (lane !== null) chooseLane(lane);
+    });
+    window.addEventListener("keydown", (event) => {
+      if (event.code === "Enter" || event.code === "Space") {
+        event.preventDefault();
+        if (!overlay.classList.contains("hidden")) startGame();
+      }
+      if (overlay.classList.contains("hidden")) {
+        if (event.key === "1") chooseLane(0);
+        if (event.key === "2") chooseLane(1);
+        if (event.key === "3") chooseLane(2);
+        if (event.code === "ArrowLeft") chooseLane(0);
+        if (event.code === "ArrowUp") chooseLane(1);
+        if (event.code === "ArrowRight") chooseLane(2);
+      }
+    });
+    startButton.addEventListener("click", startGame);
+
+    resize();
+    reset();
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>

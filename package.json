@@ -1,0 +1,18 @@
+{
+  "name": "old-rope-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "iOS wrapper project for Old Rope Bridge.",
+  "scripts": {
+    "cap:add:ios": "cap add ios",
+    "cap:sync": "cap sync ios",
+    "cap:open:ios": "cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/ios": "^8.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.0"
+  }
+}

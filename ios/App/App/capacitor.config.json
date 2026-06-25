@@ -1,0 +1,12 @@
+{
+	"appId": "com.yourname.oldropebridge",
+	"appName": "Old Rope Bridge",
+	"webDir": "www",
+	"backgroundColor": "#172631",
+	"ios": {
+		"contentInset": "always",
+		"allowsLinkPreview": false,
+		"preferredContentMode": "mobile"
+	},
+	"packageClassList": []
+}
